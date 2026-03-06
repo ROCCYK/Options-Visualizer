@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useOptions } from '../context/OptionContext';
 import type { OptionLeg } from '../types/OptionTypes';
 import { BookOpen } from 'lucide-react';
 
 export default function StrategySelector() {
     const { setLegsBulk, spotPrice } = useOptions();
+    const [activeStrategy, setActiveStrategy] = useState<string | null>(null);
 
     const applyStrategy = (name: string) => {
         let newLegs: OptionLeg[] = [];
@@ -70,9 +72,13 @@ export default function StrategySelector() {
                 break;
             case 'Clear':
                 newLegs = [];
+                setActiveStrategy(null);
                 break;
         }
 
+        if (name !== 'Clear') {
+            setActiveStrategy(name);
+        }
         setLegsBulk(newLegs);
     };
 
@@ -94,16 +100,23 @@ export default function StrategySelector() {
                 <BookOpen size={16} /> <span>Educational Presets</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                {strategies.map(s => (
-                    <button
-                        key={s.name}
-                        onClick={() => applyStrategy(s.name)}
-                        className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary/50 text-foreground py-2 px-2 sm:px-3 rounded-lg transition-all text-center flex items-center justify-center h-full"
-                        title={s.desc}
-                    >
-                        {s.name}
-                    </button>
-                ))}
+                {strategies.map(s => {
+                    const isActive = s.name === activeStrategy;
+                    return (
+                        <button
+                            key={s.name}
+                            onClick={() => applyStrategy(s.name)}
+                            className={`text-xs border py-2 px-2 sm:px-3 rounded-lg transition-all text-center flex items-center justify-center h-full
+                                ${isActive
+                                    ? 'bg-primary/20 border-primary shadow-[0_0_10px_rgba(168,85,247,0.3)] text-white font-bold'
+                                    : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-primary/50 text-foreground'
+                                }`}
+                            title={s.desc}
+                        >
+                            {s.name}
+                        </button>
+                    );
+                })}
                 <button
                     onClick={() => applyStrategy('Clear')}
                     className="text-xs w-full sm:col-span-full lg:col-span-1 lg:ml-auto bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 py-2 px-3 rounded-lg transition-all"
