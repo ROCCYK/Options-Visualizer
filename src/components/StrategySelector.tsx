@@ -1,0 +1,88 @@
+import { useOptions } from '../context/OptionContext';
+import type { OptionLeg } from '../types/OptionTypes';
+import { BookOpen } from 'lucide-react';
+
+export default function StrategySelector() {
+    const { setLegsBulk, spotPrice } = useOptions();
+
+    const applyStrategy = (name: string) => {
+        let newLegs: OptionLeg[] = [];
+        const id = () => Math.random().toString(36).substr(2, 9);
+
+        // Default assumptions based on spot price to generate visual profiles
+        const atm = spotPrice;
+
+        switch (name) {
+            case 'Straddle':
+                newLegs = [
+                    { id: id(), type: 'Call', position: 'Long', strike: atm, premium: 6, quantity: 1 },
+                    { id: id(), type: 'Put', position: 'Long', strike: atm, premium: 4, quantity: 1 }
+                ];
+                break;
+            case 'Strangle':
+                newLegs = [
+                    { id: id(), type: 'Call', position: 'Short', strike: atm + 10, premium: 3, quantity: 1 },
+                    { id: id(), type: 'Put', position: 'Short', strike: atm - 10, premium: 4, quantity: 1 }
+                ]; // Short Strangle based on practice question 3
+                break;
+            case 'Bull Spread':
+                newLegs = [
+                    { id: id(), type: 'Put', position: 'Long', strike: atm - 5, premium: 4, quantity: 1 },
+                    { id: id(), type: 'Put', position: 'Short', strike: atm, premium: 7, quantity: 1 }
+                ]; // Bull Put Spread based on practice question 1
+                break;
+            case 'Bear Spread':
+                newLegs = [
+                    { id: id(), type: 'Put', position: 'Short', strike: atm - 5, premium: 4, quantity: 1 },
+                    { id: id(), type: 'Put', position: 'Long', strike: atm, premium: 7, quantity: 1 }
+                ]; // Bear Put Spread based on practice question 1
+                break;
+            case 'Butterfly Spread':
+                newLegs = [
+                    { id: id(), type: 'Put', position: 'Long', strike: atm - 5, premium: 3, quantity: 1 },
+                    { id: id(), type: 'Put', position: 'Short', strike: atm, premium: 5, quantity: 2 },
+                    { id: id(), type: 'Put', position: 'Long', strike: atm + 5, premium: 8, quantity: 1 }
+                ]; // based on question 4
+                break;
+            case 'Clear':
+                newLegs = [];
+                break;
+        }
+
+        setLegsBulk(newLegs);
+    };
+
+    const strategies = [
+        { name: 'Bull Spread', desc: 'Profit from moderate rise.' },
+        { name: 'Bear Spread', desc: 'Profit from moderate drop.' },
+        { name: 'Straddle', desc: 'Profit from high volatility.' },
+        { name: 'Strangle', desc: 'Profit from low volatility (Short).' },
+        { name: 'Butterfly Spread', desc: 'Profit from exact target.' },
+    ];
+
+    return (
+        <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3 text-sm font-medium text-foreground/70">
+                <BookOpen size={16} /> <span>Educational Presets</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+                {strategies.map(s => (
+                    <button
+                        key={s.name}
+                        onClick={() => applyStrategy(s.name)}
+                        className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary/50 text-foreground px-3 py-2 rounded-lg transition-all flex-grow sm:flex-grow-0 text-center"
+                        title={s.desc}
+                    >
+                        {s.name}
+                    </button>
+                ))}
+                <button
+                    onClick={() => applyStrategy('Clear')}
+                    className="text-xs w-full sm:w-auto mt-2 sm:mt-0 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 px-3 py-2 rounded-lg transition-all sm:ml-auto"
+                >
+                    Clear
+                </button>
+            </div>
+        </div>
+    );
+}
