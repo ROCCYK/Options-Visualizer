@@ -1,9 +1,42 @@
+import { useEffect, useState } from 'react';
 import { useOptions } from '../context/OptionContext';
 import type { OptionLeg, OptionType, PositionType } from '../types/OptionTypes';
 import { Trash2, Plus } from 'lucide-react';
 
 export default function OptionLegEditor() {
     const { legs, addLeg, updateLeg, removeLeg, spotPrice, setSpotPrice } = useOptions();
+    const [draftValues, setDraftValues] = useState<Record<string, string>>({});
+    const [activeField, setActiveField] = useState<string | null>(null);
+
+    useEffect(() => {
+        setDraftValues(prev => {
+            const next = { ...prev };
+
+            if (activeField !== 'spotPrice') {
+                next.spotPrice = String(spotPrice);
+            }
+
+            for (const leg of legs) {
+                const strikeKey = `${leg.id}:strike`;
+                const premiumKey = `${leg.id}:premium`;
+                const quantityKey = `${leg.id}:quantity`;
+
+                if (activeField !== strikeKey) {
+                    next[strikeKey] = String(leg.strike);
+                }
+
+                if (activeField !== premiumKey) {
+                    next[premiumKey] = String(leg.premium);
+                }
+
+                if (activeField !== quantityKey) {
+                    next[quantityKey] = String(leg.quantity);
+                }
+            }
+
+            return next;
+        });
+    }, [activeField, legs, spotPrice]);
 
     const handleAddLeg = () => {
         const newLeg: OptionLeg = {
@@ -17,6 +50,27 @@ export default function OptionLegEditor() {
         addLeg(newLeg);
     };
 
+    const handleNumberChange = (fieldKey: string, rawValue: string, commit: (value: number) => void) => {
+        setDraftValues(prev => ({ ...prev, [fieldKey]: rawValue }));
+
+        if (rawValue.trim() === '') {
+            return;
+        }
+
+        const parsedValue = Number(rawValue);
+        if (Number.isFinite(parsedValue)) {
+            commit(parsedValue);
+        }
+    };
+
+    const handleNumberBlur = (fieldKey: string, fallbackValue: number) => {
+        setActiveField(current => (current === fieldKey ? null : current));
+        setDraftValues(prev => ({ ...prev, [fieldKey]: String(fallbackValue) }));
+    };
+
+    const getDraftValue = (fieldKey: string, fallbackValue: number) =>
+        draftValues[fieldKey] ?? String(fallbackValue);
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-white/10">
@@ -26,8 +80,10 @@ export default function OptionLegEditor() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50">$</span>
                         <input
                             type="number"
-                            value={spotPrice}
-                            onChange={(e) => setSpotPrice(Number(e.target.value))}
+                            value={getDraftValue('spotPrice', spotPrice)}
+                            onFocus={() => setActiveField('spotPrice')}
+                            onBlur={() => handleNumberBlur('spotPrice', spotPrice)}
+                            onChange={(e) => handleNumberChange('spotPrice', e.target.value, setSpotPrice)}
                             className="w-32 bg-white/5 border border-white/10 rounded-lg pl-8 pr-3 py-2 outline-none focus:border-primary transition-colors"
                         />
                     </div>
@@ -77,9 +133,11 @@ export default function OptionLegEditor() {
                                 <label className="text-xs text-foreground/50 block mb-1">Strike</label>
                                 <input
                                     type="number"
-                                    value={leg.strike}
+                                    value={getDraftValue(`${leg.id}:strike`, leg.strike)}
                                     disabled={leg.type === 'Stock'}
-                                    onChange={(e) => updateLeg(leg.id, { strike: Number(e.target.value) })}
+                                    onFocus={() => setActiveField(`${leg.id}:strike`)}
+                                    onBlur={() => handleNumberBlur(`${leg.id}:strike`, leg.strike)}
+                                    onChange={(e) => handleNumberChange(`${leg.id}:strike`, e.target.value, (value) => updateLeg(leg.id, { strike: value }))}
                                     className={`w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1 outline-none transition-colors ${leg.type === 'Stock' ? 'opacity-30 cursor-not-allowed' : 'focus:border-primary'}`}
                                 />
                             </div>
@@ -87,8 +145,10 @@ export default function OptionLegEditor() {
                                 <label className="text-xs text-foreground/50 block mb-1">{leg.type === 'Stock' ? 'Entry Price' : 'Premium'}</label>
                                 <input
                                     type="number"
-                                    value={leg.premium}
-                                    onChange={(e) => updateLeg(leg.id, { premium: Number(e.target.value) })}
+                                    value={getDraftValue(`${leg.id}:premium`, leg.premium)}
+                                    onFocus={() => setActiveField(`${leg.id}:premium`)}
+                                    onBlur={() => handleNumberBlur(`${leg.id}:premium`, leg.premium)}
+                                    onChange={(e) => handleNumberChange(`${leg.id}:premium`, e.target.value, (value) => updateLeg(leg.id, { premium: value }))}
                                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1 outline-none focus:border-primary"
                                 />
                             </div>
@@ -97,8 +157,10 @@ export default function OptionLegEditor() {
                                 <input
                                     type="number"
                                     min="1"
-                                    value={leg.quantity}
-                                    onChange={(e) => updateLeg(leg.id, { quantity: Number(e.target.value) })}
+                                    value={getDraftValue(`${leg.id}:quantity`, leg.quantity)}
+                                    onFocus={() => setActiveField(`${leg.id}:quantity`)}
+                                    onBlur={() => handleNumberBlur(`${leg.id}:quantity`, leg.quantity)}
+                                    onChange={(e) => handleNumberChange(`${leg.id}:quantity`, e.target.value, (value) => updateLeg(leg.id, { quantity: value }))}
                                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1 outline-none focus:border-primary"
                                 />
                             </div>
