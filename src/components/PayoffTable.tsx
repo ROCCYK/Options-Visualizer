@@ -8,14 +8,18 @@ export default function PayoffTable() {
 
     if (legs.length === 0) return null;
 
-    // Generate a few key data points: min strike, max strike, ATM, and +/- 10% ranges
+    // Generate a wider range for scrolling: min strike, max strike, ATM, and +/- 20% ranges
     const strikes = legs.map(l => l.strike);
-    const minStrike = Math.min(...strikes, spotPrice * 0.9);
-    const maxStrike = Math.max(...strikes, spotPrice * 1.1);
+    const minStrike = Math.min(...strikes, spotPrice * 0.8);
+    const maxStrike = Math.max(...strikes, spotPrice * 1.2);
 
-    // Create 5-7 meaningful rows
-    const step = Math.ceil((maxStrike - minStrike) / 6);
-    const data = generateChartData(legs, Math.floor(minStrike), Math.ceil(maxStrike), step > 0 ? step : 1);
+    // Create 20-30 meaningful rows
+    const range = maxStrike - minStrike;
+    const step = Math.max(1, Math.ceil(range / 20));
+
+    const displayMin = Math.floor(minStrike - range * 0.1);
+    const displayMax = Math.ceil(maxStrike + range * 0.1);
+    const data = generateChartData(legs, displayMin, displayMax, step);
 
     return (
         <div className="mt-8">
@@ -31,17 +35,17 @@ export default function PayoffTable() {
                     Show detailed math
                 </label>
             </div>
-            <div className="overflow-x-auto rounded-xl border border-white/10">
+            <div className="overflow-auto rounded-xl border border-white/10 max-h-[500px]">
                 <table className="w-full text-sm text-left border-collapse min-w-[500px]">
-                    <thead className="bg-white/5 border-b border-white/10 uppercase text-xs text-foreground/60">
+                    <thead className="bg-background/95 backdrop-blur sticky top-0 border-b border-white/10 uppercase text-xs text-foreground/60 z-10 shadow-sm">
                         <tr>
-                            <th className="px-4 py-3 whitespace-nowrap">Spot Price</th>
+                            <th className="px-4 py-3 whitespace-nowrap bg-background">Spot Price</th>
                             {legs.map((leg, i) => (
-                                <th key={leg.id} className="px-4 py-3 font-normal whitespace-nowrap">
+                                <th key={leg.id} className="px-4 py-3 font-normal whitespace-nowrap bg-background">
                                     Leg {i + 1} <span className={leg.position === 'Long' ? 'text-green-400' : 'text-red-400'}>({leg.position === 'Long' ? 'Buy' : 'Sell'} {leg.type})</span>
                                 </th>
                             ))}
-                            <th className="px-4 py-3 text-primary font-bold whitespace-nowrap">Total Profit</th>
+                            <th className="px-4 py-3 text-primary font-bold whitespace-nowrap bg-background">Total Profit</th>
                         </tr>
                     </thead>
                     <tbody>
