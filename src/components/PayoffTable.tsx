@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { useOptions } from '../context/OptionContext';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useOptions } from '../context/useOptions';
 import {
     calculateDisplayDomain,
     calculateEntryCost,
@@ -14,10 +14,14 @@ export default function PayoffTable() {
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
     const spotRowRef = useRef<HTMLTableRowElement | null>(null);
     const hasLegs = legs.length > 0;
-    const domain = hasLegs ? calculateDisplayDomain(legs, spotPrice) : null;
-    const data = domain
-        ? generateChartData(legs, domain.chartMinSpot, domain.chartMaxSpot, domain.chartStep)
-        : [];
+    const domain = useMemo(() => (
+        hasLegs ? calculateDisplayDomain(legs, spotPrice) : null
+    ), [hasLegs, legs, spotPrice]);
+    const data = useMemo(() => (
+        domain
+            ? generateChartData(legs, domain.chartMinSpot, domain.chartMaxSpot, domain.chartStep, [spotPrice])
+            : []
+    ), [domain, legs, spotPrice]);
     const closestSpotIndex = data.reduce((closestIndex, row, index) => {
         const currentDistance = Math.abs(row.spotPrice - spotPrice);
         const closestDistance = Math.abs(data[closestIndex].spotPrice - spotPrice);
@@ -35,7 +39,7 @@ export default function PayoffTable() {
 
         const targetScrollTop = row.offsetTop - ((container.clientHeight - row.clientHeight) / 2);
         container.scrollTop = Math.max(0, targetScrollTop);
-    }, [closestSpotIndex, showMath]);
+    }, [closestSpotIndex, hasLegs, showMath]);
 
     if (!hasLegs) return null;
 

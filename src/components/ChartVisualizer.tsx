@@ -1,16 +1,56 @@
 import { useMemo } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { useOptions } from '../context/OptionContext';
+import {
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    ReferenceLine,
+    type TooltipContentProps,
+} from 'recharts';
+import { useOptions } from '../context/useOptions';
 import { calculateDisplayDomain, generateChartData } from '../utils/calculations';
 import { categoryThemeMap, type StrategyCategory } from '../utils/strategyPresets';
+
+const ChartTooltipContent = ({ active, payload, label }: TooltipContentProps<number, string>) => {
+    if (!active || !payload?.length) {
+        return null;
+    }
+
+    const displayLabel = typeof label === 'number' ? label.toFixed(2) : String(label);
+
+    return (
+        <div className="glass p-3 rounded-xl border border-white/10 text-sm">
+            <p className="font-bold mb-2">Spot: ${displayLabel}</p>
+            {payload.map((entry, index) => {
+                const value = Number(entry.value);
+                const dataKey = String(entry.dataKey ?? '');
+                const isTotal = dataKey === 'totalProfit';
+                const colorClass = value >= 0 ? 'text-green-400' : 'text-red-400';
+
+                return (
+                    <div key={`${dataKey}-${index}`} className={`flex justify-between gap-4 items-center ${isTotal ? 'font-bold mt-2 pt-2 border-t border-white/10' : 'text-foreground/70'}`}>
+                        <div className="flex items-center gap-2">
+                            {!isTotal && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.stroke || entry.color }}></div>}
+                            <span>{isTotal ? 'Total PnL' : `Leg ${dataKey.substring(0, 4)}`}</span>
+                        </div>
+                        <span className={colorClass}>{value >= 0 ? '+' : ''}${value.toFixed(2)}</span>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
 
 export default function ChartVisualizer() {
     const { legs, selectedStrategy, spotPrice } = useOptions();
     const domain = useMemo(() => calculateDisplayDomain(legs, spotPrice), [legs, spotPrice]);
 
     const data = useMemo(() => {
-        return generateChartData(legs, domain.chartMinSpot, domain.chartMaxSpot, domain.chartStep);
-    }, [domain, legs]);
+        return generateChartData(legs, domain.chartMinSpot, domain.chartMaxSpot, domain.chartStep, [spotPrice]);
+    }, [domain, legs, spotPrice]);
 
     if (legs.length === 0) {
         return (
@@ -20,33 +60,6 @@ export default function ChartVisualizer() {
             </div>
         );
     }
-
-    // Find min/max profit for custom domain if needed, or let recharts handle it
-    // Customizing tooltip to show positive in green, negative in red
-    const CustomTooltip = ({ active, payload, label }: any) => {
-        if (active && payload && payload.length) {
-            return (
-                <div className="glass p-3 rounded-xl border border-white/10 text-sm">
-                    <p className="font-bold mb-2">Spot: ${label}</p>
-                    {payload.map((entry: any, index: number) => {
-                        const val = Number(entry.value);
-                        const isTotal = entry.dataKey === 'totalProfit';
-                        const colorClass = val >= 0 ? 'text-green-400' : 'text-red-400';
-                        return (
-                            <div key={index} className={`flex justify-between gap-4 items-center ${isTotal ? 'font-bold mt-2 pt-2 border-t border-white/10' : 'text-foreground/70'}`}>
-                                <div className="flex items-center gap-2">
-                                    {!isTotal && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.stroke }}></div>}
-                                    <span>{isTotal ? 'Total PnL' : `Leg ${entry.dataKey.substring(0, 4)}`}</span>
-                                </div>
-                                <span className={colorClass}>{val >= 0 ? '+' : ''}${val.toFixed(2)}</span>
-                            </div>
-                        );
-                    })}
-                </div>
-            );
-        }
-        return null;
-    };
 
     const maxProfit = Math.max(...data.map(d => d.totalProfit), 0);
     const minProfit = Math.min(...data.map(d => d.totalProfit), 0);
@@ -92,7 +105,7 @@ export default function ChartVisualizer() {
                         tick={{ fontSize: 12 }}
                         dx={-10}
                     />
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip content={ChartTooltipContent} />
                     <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" strokeWidth={1} />
                     <ReferenceLine x={spotPrice} stroke="hsl(var(--primary))" strokeDasharray="3 3" opacity={0.5} label={{ position: 'top', value: 'Current Spot', fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} />
 

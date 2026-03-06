@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { BookOpen } from 'lucide-react';
-import { useOptions } from '../context/OptionContext';
+import { useOptions } from '../context/useOptions';
 import type { OptionLeg } from '../types/OptionTypes';
 import {
     categoryThemeMap,
@@ -20,9 +20,9 @@ const materializeLegs = (preset: StrategyPreset, spotPrice: number): OptionLeg[]
     }));
 
 export default function StrategySelector() {
-    const { setLegsBulk, setSelectedStrategy, spotPrice } = useOptions();
-    const [activeStrategyId, setActiveStrategyId] = useState<string | null>(null);
+    const { selectedStrategy, setLegsBulk, setSelectedStrategy, spotPrice } = useOptions();
     const [activeCategory, setActiveCategory] = useState<StrategyCategory>('Bullish');
+    const activeStrategyId = selectedStrategy?.id ?? null;
 
     const applyStrategy = (strategyId: string) => {
         const preset = strategyPresets.find(strategy => strategy.id === strategyId);
@@ -32,13 +32,11 @@ export default function StrategySelector() {
         }
 
         setActiveCategory(preset.category);
-        setActiveStrategyId(preset.id);
-        setSelectedStrategy({ name: preset.name, category: preset.category });
+        setSelectedStrategy({ id: preset.id, name: preset.name, category: preset.category });
         setLegsBulk(materializeLegs(preset, spotPrice));
     };
 
     const clearStrategy = () => {
-        setActiveStrategyId(null);
         setSelectedStrategy(null);
         setLegsBulk([]);
     };

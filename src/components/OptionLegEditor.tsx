@@ -1,42 +1,34 @@
-import { useEffect, useState } from 'react';
-import { useOptions } from '../context/OptionContext';
+import { useMemo, useState } from 'react';
+import { useOptions } from '../context/useOptions';
 import type { OptionLeg, OptionType, PositionType } from '../types/OptionTypes';
 import { Trash2, Plus } from 'lucide-react';
+
+const sanitizeNumberInput = (fieldKey: string, value: number): number => {
+    if (fieldKey.endsWith(':quantity')) {
+        return Math.max(1, value);
+    }
+
+    return Math.max(0, value);
+};
 
 export default function OptionLegEditor() {
     const { legs, addLeg, updateLeg, removeLeg, spotPrice, setSpotPrice } = useOptions();
     const [draftValues, setDraftValues] = useState<Record<string, string>>({});
     const [activeField, setActiveField] = useState<string | null>(null);
 
-    useEffect(() => {
-        setDraftValues(prev => {
-            const next = { ...prev };
+    const fieldValues = useMemo(() => {
+        const next: Record<string, string> = {
+            spotPrice: String(spotPrice),
+        };
 
-            if (activeField !== 'spotPrice') {
-                next.spotPrice = String(spotPrice);
-            }
+        for (const leg of legs) {
+            next[`${leg.id}:strike`] = String(leg.strike);
+            next[`${leg.id}:premium`] = String(leg.premium);
+            next[`${leg.id}:quantity`] = String(leg.quantity);
+        }
 
-            for (const leg of legs) {
-                const strikeKey = `${leg.id}:strike`;
-                const premiumKey = `${leg.id}:premium`;
-                const quantityKey = `${leg.id}:quantity`;
-
-                if (activeField !== strikeKey) {
-                    next[strikeKey] = String(leg.strike);
-                }
-
-                if (activeField !== premiumKey) {
-                    next[premiumKey] = String(leg.premium);
-                }
-
-                if (activeField !== quantityKey) {
-                    next[quantityKey] = String(leg.quantity);
-                }
-            }
-
-            return next;
-        });
-    }, [activeField, legs, spotPrice]);
+        return next;
+    }, [legs, spotPrice]);
 
     const handleAddLeg = () => {
         const newLeg: OptionLeg = {
@@ -59,17 +51,23 @@ export default function OptionLegEditor() {
 
         const parsedValue = Number(rawValue);
         if (Number.isFinite(parsedValue)) {
-            commit(parsedValue);
+            commit(sanitizeNumberInput(fieldKey, parsedValue));
         }
     };
 
-    const handleNumberBlur = (fieldKey: string, fallbackValue: number) => {
+    const handleNumberBlur = (fieldKey: string) => {
         setActiveField(current => (current === fieldKey ? null : current));
-        setDraftValues(prev => ({ ...prev, [fieldKey]: String(fallbackValue) }));
+        setDraftValues(prev => {
+            const next = { ...prev };
+            delete next[fieldKey];
+            return next;
+        });
     };
 
     const getDraftValue = (fieldKey: string, fallbackValue: number) =>
-        draftValues[fieldKey] ?? String(fallbackValue);
+        activeField === fieldKey
+            ? draftValues[fieldKey] ?? fieldValues[fieldKey] ?? String(fallbackValue)
+            : fieldValues[fieldKey] ?? String(fallbackValue);
 
     return (
         <div className="space-y-6">
@@ -82,8 +80,10 @@ export default function OptionLegEditor() {
                             type="number"
                             value={getDraftValue('spotPrice', spotPrice)}
                             onFocus={() => setActiveField('spotPrice')}
-                            onBlur={() => handleNumberBlur('spotPrice', spotPrice)}
+                            onBlur={() => handleNumberBlur('spotPrice')}
                             onChange={(e) => handleNumberChange('spotPrice', e.target.value, setSpotPrice)}
+                            min="0"
+                            step="any"
                             className="w-32 bg-white/5 border border-white/10 rounded-lg pl-8 pr-3 py-2 outline-none focus:border-primary transition-colors"
                         />
                     </div>
@@ -136,8 +136,10 @@ export default function OptionLegEditor() {
                                     value={getDraftValue(`${leg.id}:strike`, leg.strike)}
                                     disabled={leg.type === 'Stock'}
                                     onFocus={() => setActiveField(`${leg.id}:strike`)}
-                                    onBlur={() => handleNumberBlur(`${leg.id}:strike`, leg.strike)}
+                                    onBlur={() => handleNumberBlur(`${leg.id}:strike`)}
                                     onChange={(e) => handleNumberChange(`${leg.id}:strike`, e.target.value, (value) => updateLeg(leg.id, { strike: value }))}
+                                    min="0"
+                                    step="any"
                                     className={`w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1 outline-none transition-colors ${leg.type === 'Stock' ? 'opacity-30 cursor-not-allowed' : 'focus:border-primary'}`}
                                 />
                             </div>
@@ -147,8 +149,10 @@ export default function OptionLegEditor() {
                                     type="number"
                                     value={getDraftValue(`${leg.id}:premium`, leg.premium)}
                                     onFocus={() => setActiveField(`${leg.id}:premium`)}
-                                    onBlur={() => handleNumberBlur(`${leg.id}:premium`, leg.premium)}
+                                    onBlur={() => handleNumberBlur(`${leg.id}:premium`)}
                                     onChange={(e) => handleNumberChange(`${leg.id}:premium`, e.target.value, (value) => updateLeg(leg.id, { premium: value }))}
+                                    min="0"
+                                    step="any"
                                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1 outline-none focus:border-primary"
                                 />
                             </div>
@@ -159,8 +163,9 @@ export default function OptionLegEditor() {
                                     min="1"
                                     value={getDraftValue(`${leg.id}:quantity`, leg.quantity)}
                                     onFocus={() => setActiveField(`${leg.id}:quantity`)}
-                                    onBlur={() => handleNumberBlur(`${leg.id}:quantity`, leg.quantity)}
+                                    onBlur={() => handleNumberBlur(`${leg.id}:quantity`)}
                                     onChange={(e) => handleNumberChange(`${leg.id}:quantity`, e.target.value, (value) => updateLeg(leg.id, { quantity: value }))}
+                                    step="any"
                                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1 outline-none focus:border-primary"
                                 />
                             </div>

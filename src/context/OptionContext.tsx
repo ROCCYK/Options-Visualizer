@@ -1,26 +1,7 @@
-import { createContext, useContext, useState } from 'react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { OptionLeg } from '../types/OptionTypes';
-
-export interface SelectedStrategyMeta {
-    name: string;
-    category: string;
-}
-
-interface OptionContextType {
-    legs: OptionLeg[];
-    addLeg: (leg: OptionLeg) => void;
-    updateLeg: (id: string, leg: Partial<OptionLeg>) => void;
-    removeLeg: (id: string) => void;
-    clearLegs: () => void;
-    setLegsBulk: (legs: OptionLeg[]) => void;
-    spotPrice: number;
-    setSpotPrice: (price: number) => void;
-    selectedStrategy: SelectedStrategyMeta | null;
-    setSelectedStrategy: (strategy: SelectedStrategyMeta | null) => void;
-}
-
-const OptionContext = createContext<OptionContextType | undefined>(undefined);
+import { OptionContext, type SelectedStrategyMeta } from './sharedOptionContext';
 
 const COLORS = ['#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#06b6d4'];
 
@@ -64,10 +45,4 @@ export const OptionProvider = ({ children }: { children: ReactNode }) => {
             {children}
         </OptionContext.Provider>
     );
-};
-
-export const useOptions = () => {
-    const context = useContext(OptionContext);
-    if (!context) throw new Error("useOptions must be used within OptionProvider");
-    return context;
 };

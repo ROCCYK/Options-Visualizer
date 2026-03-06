@@ -1,21 +1,63 @@
 import type { OptionLeg, ChartDataPoint } from '../types/OptionTypes';
 
 const EPSILON = 1e-9;
+const UNIQUENESS_EPSILON = 1e-6;
 
 const isApproximatelyZero = (value: number): boolean => Math.abs(value) < EPSILON;
+
+const normalizeNonNegative = (value: number): number => (isApproximatelyZero(value) ? 0 : value);
 
 const addUniqueValue = (values: number[], candidate: number) => {
     if (!Number.isFinite(candidate) || candidate < -EPSILON) {
         return;
     }
 
-    const normalized = isApproximatelyZero(candidate) ? 0 : candidate;
-    const alreadyIncluded = values.some(value => Math.abs(value - normalized) < 1e-6);
+    const normalized = normalizeNonNegative(candidate);
+    const alreadyIncluded = values.some(value => Math.abs(value - normalized) < UNIQUENESS_EPSILON);
 
     if (!alreadyIncluded) {
         values.push(normalized);
     }
 };
+
+const addUniqueRange = (
+    ranges: BreakEvenRange[],
+    start: number,
+    end: number | null
+) => {
+    if (!Number.isFinite(start) || start < -EPSILON) {
+        return;
+    }
+
+    if (end !== null && (!Number.isFinite(end) || end < start - EPSILON)) {
+        return;
+    }
+
+    const normalizedStart = normalizeNonNegative(start);
+    const normalizedEnd = end === null ? null : normalizeNonNegative(end);
+    const lastRange = ranges[ranges.length - 1];
+
+    if (!lastRange) {
+        ranges.push({ start: normalizedStart, end: normalizedEnd });
+        return;
+    }
+
+    const lastEnd = lastRange.end === null ? Infinity : lastRange.end;
+    const currentEnd = normalizedEnd === null ? Infinity : normalizedEnd;
+
+    if (normalizedStart <= lastEnd + UNIQUENESS_EPSILON) {
+        lastRange.start = Math.min(lastRange.start, normalizedStart);
+        lastRange.end = Number.isFinite(Math.max(lastEnd, currentEnd))
+            ? Math.max(lastEnd, currentEnd)
+            : null;
+        return;
+    }
+
+    ranges.push({ start: normalizedStart, end: normalizedEnd });
+};
+
+const isPointInsideRanges = (point: number, ranges: BreakEvenRange[]): boolean =>
+    ranges.some(({ start, end }) => point > start - UNIQUENESS_EPSILON && (end === null || point < end + UNIQUENESS_EPSILON));
 
 const getUniqueKinkSpots = (legs: OptionLeg[]): number[] =>
     Array.from(
@@ -97,10 +139,12 @@ export const generateChartData = (
     legs: OptionLeg[],
     minSpot: number,
     maxSpot: number,
-    step = 1
+    step = 1,
+    anchorSpots: number[] = []
 ): ChartDataPoint[] => {
     const data: ChartDataPoint[] = [];
     const safeStep = Math.max(step, 1);
+    const sampledSpots: number[] = [];
 
     const addPoint = (spot: number) => {
         const point: ChartDataPoint = {
@@ -120,21 +164,35 @@ export const generateChartData = (
     };
 
     for (let spot = minSpot; spot <= maxSpot; spot += safeStep) {
-        addPoint(spot);
+        addUniqueValue(sampledSpots, spot);
     }
 
-    const lastSpot = data[data.length - 1]?.spotPrice;
+    const lastSpot = sampledSpots[sampledSpots.length - 1];
     if (lastSpot === undefined || Math.abs(lastSpot - maxSpot) > 1e-6) {
-        addPoint(maxSpot);
+        addUniqueValue(sampledSpots, maxSpot);
     }
+
+    anchorSpots.forEach(anchorSpot => {
+        if (anchorSpot >= minSpot - EPSILON && anchorSpot <= maxSpot + EPSILON) {
+            addUniqueValue(sampledSpots, anchorSpot);
+        }
+    });
+
+    sampledSpots.sort((a, b) => a - b).forEach(addPoint);
 
     return data;
 };
+
+export interface BreakEvenRange {
+    start: number;
+    end: number | null;
+}
 
 export interface StrategyMetrics {
     maxProfit: number;
     maxLoss: number;
     breakEvens: number[];
+    breakEvenRanges: BreakEvenRange[];
     isMaxProfitUnlimited: boolean;
     isMaxLossUnlimited: boolean;
 }
@@ -145,6 +203,7 @@ export const calculateStrategyMetrics = (legs: OptionLeg[]): StrategyMetrics => 
             maxProfit: 0,
             maxLoss: 0,
             breakEvens: [],
+            breakEvenRanges: [],
             isMaxProfitUnlimited: false,
             isMaxLossUnlimited: false,
         };
@@ -158,6 +217,7 @@ export const calculateStrategyMetrics = (legs: OptionLeg[]): StrategyMetrics => 
     let maxLoss = Math.min(...boundaryProfits);
 
     const breakEvens: number[] = [];
+    const breakEvenRanges: BreakEvenRange[] = [];
     let leftSpot = 0;
     let leftProfit = boundaryProfits[0];
     let intervalSlope = calculateTotalSlopeAtSpot(EPSILON, legs);
@@ -167,14 +227,21 @@ export const calculateStrategyMetrics = (legs: OptionLeg[]): StrategyMetrics => 
     }
 
     kinkSpots.forEach((rightSpot, index) => {
+        const rightProfit = boundaryProfits[index + 1];
+
         if (rightSpot > leftSpot + EPSILON && Math.abs(intervalSlope) > EPSILON) {
             const root = leftSpot - (leftProfit / intervalSlope);
             if (root > leftSpot + EPSILON && root < rightSpot - EPSILON) {
                 addUniqueValue(breakEvens, root);
             }
+        } else if (
+            rightSpot > leftSpot + EPSILON &&
+            isApproximatelyZero(leftProfit) &&
+            isApproximatelyZero(rightProfit)
+        ) {
+            addUniqueRange(breakEvenRanges, leftSpot, rightSpot);
         }
 
-        const rightProfit = boundaryProfits[index + 1];
         if (isApproximatelyZero(rightProfit)) {
             addUniqueValue(breakEvens, rightSpot);
         }
@@ -193,6 +260,8 @@ export const calculateStrategyMetrics = (legs: OptionLeg[]): StrategyMetrics => 
         if (root > leftSpot + EPSILON) {
             addUniqueValue(breakEvens, root);
         }
+    } else if (isApproximatelyZero(leftProfit)) {
+        addUniqueRange(breakEvenRanges, leftSpot, null);
     }
 
     if (isMaxProfitUnlimited) {
@@ -203,10 +272,13 @@ export const calculateStrategyMetrics = (legs: OptionLeg[]): StrategyMetrics => 
         maxLoss = -Infinity;
     }
 
+    const filteredBreakEvens = breakEvens.filter(point => !isPointInsideRanges(point, breakEvenRanges));
+
     return {
         maxProfit,
         maxLoss,
-        breakEvens: breakEvens.sort((a, b) => a - b),
+        breakEvens: filteredBreakEvens.sort((a, b) => a - b),
+        breakEvenRanges,
         isMaxProfitUnlimited,
         isMaxLossUnlimited,
     };
@@ -221,19 +293,23 @@ export interface DisplayDomain {
 export const calculateDisplayDomain = (legs: OptionLeg[], spotPrice: number): DisplayDomain => {
     const metrics = calculateStrategyMetrics(legs);
     const kinkSpots = getUniqueKinkSpots(legs);
-    const chartAnchors = [spotPrice, ...kinkSpots, ...metrics.breakEvens]
+    const normalizedSpotPrice = Math.max(0, spotPrice);
+    const breakEvenRangeAnchors = metrics.breakEvenRanges.flatMap(range =>
+        range.end === null ? [range.start] : [range.start, range.end]
+    );
+    const chartAnchors = [normalizedSpotPrice, ...kinkSpots, ...metrics.breakEvens, ...breakEvenRangeAnchors]
         .filter(value => Number.isFinite(value) && value >= 0);
     const maxAnchor = Math.max(...chartAnchors, 1);
-    const minChartAnchor = Math.min(...chartAnchors, spotPrice);
-    const maxChartAnchor = Math.max(...chartAnchors, spotPrice);
+    const minChartAnchor = Math.min(...chartAnchors, normalizedSpotPrice);
+    const maxChartAnchor = Math.max(...chartAnchors, normalizedSpotPrice);
     const chartPadding = Math.max(10, Math.ceil(maxAnchor * 0.15));
     const chartHalfWidth = Math.max(
-        Math.ceil(Math.max(spotPrice, 1) * 0.5),
-        Math.ceil(spotPrice - Math.max(0, minChartAnchor - chartPadding)),
-        Math.ceil(maxChartAnchor + chartPadding - spotPrice)
+        Math.ceil(Math.max(normalizedSpotPrice, 1) * 0.5),
+        Math.ceil(normalizedSpotPrice - Math.max(0, minChartAnchor - chartPadding)),
+        Math.ceil(maxChartAnchor + chartPadding - normalizedSpotPrice)
     );
-    const chartMinSpot = Math.floor(spotPrice - chartHalfWidth);
-    const chartMaxSpot = Math.ceil(spotPrice + chartHalfWidth);
+    const chartMinSpot = Math.max(0, Math.floor(normalizedSpotPrice - chartHalfWidth));
+    const chartMaxSpot = Math.ceil(normalizedSpotPrice + chartHalfWidth);
     const chartWidth = Math.max(1, chartMaxSpot - chartMinSpot);
 
     return {
