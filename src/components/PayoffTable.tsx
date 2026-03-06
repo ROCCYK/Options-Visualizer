@@ -37,7 +37,9 @@ export default function PayoffTable() {
                         <tr>
                             <th className="px-4 py-3 whitespace-nowrap">Spot Price</th>
                             {legs.map((leg, i) => (
-                                <th key={leg.id} className="px-4 py-3 font-normal whitespace-nowrap">Leg {i + 1} ({leg.type})</th>
+                                <th key={leg.id} className="px-4 py-3 font-normal whitespace-nowrap">
+                                    Leg {i + 1} <span className={leg.position === 'Long' ? 'text-green-400' : 'text-red-400'}>({leg.position === 'Long' ? 'Buy' : 'Sell'} {leg.type})</span>
+                                </th>
                             ))}
                             <th className="px-4 py-3 text-primary font-bold whitespace-nowrap">Total Profit</th>
                         </tr>
@@ -85,6 +87,14 @@ export default function PayoffTable() {
                                         }
                                     }
 
+                                    const payoffFormulaStr = isCall
+                                        ? `max(0, ${row.spotPrice.toFixed(0)} - ${leg.strike})`
+                                        : `max(0, ${leg.strike} - ${row.spotPrice.toFixed(0)})`;
+
+                                    const payoffString = leg.quantity > 1
+                                        ? `${payoffFormulaStr} × ${leg.quantity}`
+                                        : payoffFormulaStr;
+
                                     return (
                                         <td key={leg.id} className="px-4 py-3 min-w-[120px]">
                                             <div className={`font-medium ${val >= 0 ? 'text-green-400' : 'text-red-400'}`}>
@@ -96,7 +106,12 @@ export default function PayoffTable() {
                                                         <span className={`px-1 rounded-[3px] font-bold ${moneyColor}`}>{moneyness}</span>
                                                         <span>IV: ${intrinsicValue.toFixed(2)}</span>
                                                     </div>
-                                                    <span className="opacity-70">{mathText}</span>
+                                                    <span className="opacity-70">
+                                                        Payoff: {payoffString} = {payoff.toFixed(0)}
+                                                    </span>
+                                                    <span className="opacity-70">
+                                                        PnL: {mathText}
+                                                    </span>
                                                 </div>
                                             )}
                                         </td>
