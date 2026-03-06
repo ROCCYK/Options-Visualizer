@@ -19,7 +19,11 @@ const materializeLegs = (preset: StrategyPreset, spotPrice: number): OptionLeg[]
         id: createLegId(),
     }));
 
-export default function StrategySelector() {
+interface StrategySelectorProps {
+    onStrategyApplied?: () => void;
+}
+
+export default function StrategySelector({ onStrategyApplied }: StrategySelectorProps) {
     const { selectedStrategy, setLegsBulk, setSelectedStrategy, spotPrice } = useOptions();
     const [activeCategory, setActiveCategory] = useState<StrategyCategory>('Bullish');
     const activeStrategyId = selectedStrategy?.id ?? null;
@@ -34,6 +38,7 @@ export default function StrategySelector() {
         setActiveCategory(preset.category);
         setSelectedStrategy({ id: preset.id, name: preset.name, category: preset.category });
         setLegsBulk(materializeLegs(preset, spotPrice));
+        onStrategyApplied?.();
     };
 
     const clearStrategy = () => {
@@ -69,7 +74,7 @@ export default function StrategySelector() {
     };
 
     return (
-        <div className="mb-6 space-y-4">
+        <div className="space-y-4 pb-2">
             <div className="flex items-start justify-between gap-3">
                 <div>
                     <div className="flex items-center gap-2 text-sm font-medium text-foreground/70">
@@ -123,7 +128,7 @@ export default function StrategySelector() {
                         </p>
                     </div>
                 </div>
-                <div className="max-h-[30.5rem] overflow-y-auto pr-1">
+                <div className="max-h-[18.5rem] overflow-y-auto pr-1">
                     <div className="grid grid-cols-1 gap-2">
                         {groupedStrategyPresets[activeCategory].map(renderStrategyCard)}
                     </div>

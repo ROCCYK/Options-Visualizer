@@ -1,7 +1,6 @@
 import { OptionProvider } from './context/OptionContext';
 import ChartVisualizer from './components/ChartVisualizer';
-import OptionLegEditor from './components/OptionLegEditor';
-import StrategySelector from './components/StrategySelector';
+import StrategyBuilderPanel from './components/StrategyBuilderPanel';
 import PayoffTable from './components/PayoffTable';
 import OptionValueTable from './components/OptionValueTable';
 import KeyMetricsPanel from './components/KeyMetricsPanel';
@@ -43,13 +42,7 @@ function App() {
           </div>
 
           <div className="w-full lg:w-1/3 space-y-6 lg:sticky lg:top-8 lg:order-2 order-1">
-            <div className="glass p-4 md:p-6 rounded-3xl">
-              <h2 className="text-lg md:text-xl font-bold mb-4 md:mb-6 flex items-center gap-2 border-b border-white/10 pb-4">
-                Strategy Builder
-              </h2>
-              <StrategySelector />
-              <OptionLegEditor />
-            </div>
+            <StrategyBuilderPanel />
           </div>
         </main>
       </div>
