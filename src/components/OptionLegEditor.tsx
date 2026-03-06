@@ -68,6 +68,7 @@ export default function OptionLegEditor() {
                             >
                                 <option value="Call" className="bg-background">Call</option>
                                 <option value="Put" className="bg-background">Put</option>
+                                <option value="Stock" className="bg-background">Underlying Stock</option>
                             </select>
                         </div>
 
@@ -77,12 +78,13 @@ export default function OptionLegEditor() {
                                 <input
                                     type="number"
                                     value={leg.strike}
+                                    disabled={leg.type === 'Stock'}
                                     onChange={(e) => updateLeg(leg.id, { strike: Number(e.target.value) })}
-                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1 outline-none focus:border-primary"
+                                    className={`w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1 outline-none transition-colors ${leg.type === 'Stock' ? 'opacity-30 cursor-not-allowed' : 'focus:border-primary'}`}
                                 />
                             </div>
                             <div>
-                                <label className="text-xs text-foreground/50 block mb-1">Premium</label>
+                                <label className="text-xs text-foreground/50 block mb-1">{leg.type === 'Stock' ? 'Entry Price' : 'Premium'}</label>
                                 <input
                                     type="number"
                                     value={leg.premium}

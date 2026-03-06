@@ -13,22 +13,27 @@ export default function OptionValueTable() {
         const isLong = leg.position === 'Long';
 
         // Option Value is simply the premium (current market price of the option)
-        const optionValue = leg.premium;
+        let optionValue = leg.premium;
 
         // Intrinsic Value calculation based on current Spot Price
         const targetStrike = leg.strike;
         let intrinsicValue = 0;
+
         if (isCall) {
             intrinsicValue = Math.max(0, spotPrice - targetStrike);
-        } else {
+        } else if (leg.type === 'Put') {
             intrinsicValue = Math.max(0, targetStrike - spotPrice);
+        } else {
+            // For Stock, Intrinsic Value / Time value don't exactly apply in an options sense.
+            // Value of stock is just Spot Price.
+            optionValue = spotPrice; // Current mark-to-market value is Spot
+            intrinsicValue = spotPrice;
         }
 
         // Time Value = Option Value - Intrinsic Value
         // Note: For OTM options, IV is 0, so TV = Option Value.
-        // If Option Value is somehow less than IV (arbitrage), TV would technically be negative, 
-        // but for educational purposes we usually floor it at 0 or show the actual math.
-        const timeValue = Math.max(0, optionValue - intrinsicValue);
+        let timeValue = Math.max(0, optionValue - intrinsicValue);
+        if (leg.type === 'Stock') timeValue = 0;
 
         return {
             id: leg.id,
@@ -92,23 +97,35 @@ export default function OptionValueTable() {
                                 </td>
 
                                 <td className="px-4 py-3 min-w-[150px]">
-                                    <span className="font-bold text-green-300">${row.intrinsicValue.toFixed(2)}</span>
-                                    {showBreakdown && (
-                                        <div className="text-[10px] text-foreground/50 mt-1 whitespace-nowrap font-mono opacity-80">
-                                            {row.isCall
-                                                ? `max(0, ${spotPrice.toFixed(0)} Spot - ${row.strike} Strike)`
-                                                : `max(0, ${row.strike} Strike - ${spotPrice.toFixed(0)} Spot)`
-                                            }
-                                        </div>
+                                    {row.type === 'Stock' ? (
+                                        <span className="font-bold text-foreground/50">N/A</span>
+                                    ) : (
+                                        <>
+                                            <span className="font-bold text-green-300">${row.intrinsicValue.toFixed(2)}</span>
+                                            {showBreakdown && (
+                                                <div className="text-[10px] text-foreground/50 mt-1 whitespace-nowrap font-mono opacity-80">
+                                                    {row.isCall
+                                                        ? `max(0, ${spotPrice.toFixed(0)} Spot - ${row.strike} Strike)`
+                                                        : `max(0, ${row.strike} Strike - ${spotPrice.toFixed(0)} Spot)`
+                                                    }
+                                                </div>
+                                            )}
+                                        </>
                                     )}
                                 </td>
 
                                 <td className="px-4 py-3 min-w-[150px]">
-                                    <span className="font-bold text-yellow-300">${row.timeValue.toFixed(2)}</span>
-                                    {showBreakdown && (
-                                        <div className="text-[10px] text-foreground/50 mt-1 whitespace-nowrap font-mono opacity-80">
-                                            {row.optionValue.toFixed(2)} Opt Value - {row.intrinsicValue.toFixed(2)} IV
-                                        </div>
+                                    {row.type === 'Stock' ? (
+                                        <span className="font-bold text-foreground/50">N/A</span>
+                                    ) : (
+                                        <>
+                                            <span className="font-bold text-yellow-300">${row.timeValue.toFixed(2)}</span>
+                                            {showBreakdown && (
+                                                <div className="text-[10px] text-foreground/50 mt-1 whitespace-nowrap font-mono opacity-80">
+                                                    {row.optionValue.toFixed(2)} Opt Value - {row.intrinsicValue.toFixed(2)} IV
+                                                </div>
+                                            )}
+                                        </>
                                     )}
                                 </td>
                             </tr>

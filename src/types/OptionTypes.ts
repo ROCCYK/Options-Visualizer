@@ -1,4 +1,4 @@
-export type OptionType = 'Call' | 'Put';
+export type OptionType = 'Call' | 'Put' | 'Stock';
 export type PositionType = 'Long' | 'Short';
 
 export interface OptionLeg {

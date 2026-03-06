@@ -44,6 +44,30 @@ export default function StrategySelector() {
                     { id: id(), type: 'Put', position: 'Long', strike: atm + 5, premium: 8, quantity: 1 }
                 ]; // based on question 4
                 break;
+            case 'Protective Put':
+                newLegs = [
+                    { id: id(), type: 'Stock', position: 'Long', strike: atm, premium: atm, quantity: 1 },
+                    { id: id(), type: 'Put', position: 'Long', strike: atm, premium: 5, quantity: 1 }
+                ];
+                break;
+            case 'Covered Call':
+                newLegs = [
+                    { id: id(), type: 'Stock', position: 'Long', strike: atm, premium: atm, quantity: 1 },
+                    { id: id(), type: 'Call', position: 'Short', strike: atm + 5, premium: 3, quantity: 1 }
+                ];
+                break;
+            case 'Strip':
+                newLegs = [
+                    { id: id(), type: 'Call', position: 'Long', strike: atm, premium: 5, quantity: 1 },
+                    { id: id(), type: 'Put', position: 'Long', strike: atm, premium: 4, quantity: 2 }
+                ];
+                break;
+            case 'Strap':
+                newLegs = [
+                    { id: id(), type: 'Call', position: 'Long', strike: atm, premium: 5, quantity: 2 },
+                    { id: id(), type: 'Put', position: 'Long', strike: atm, premium: 4, quantity: 1 }
+                ];
+                break;
             case 'Clear':
                 newLegs = [];
                 break;
@@ -53,9 +77,13 @@ export default function StrategySelector() {
     };
 
     const strategies = [
+        { name: 'Covered Call', desc: 'Hold stock + sell call. Limited upside, slight downside protection.' },
+        { name: 'Protective Put', desc: 'Hold stock + buy put. Unlimited upside, strict downside limit.' },
         { name: 'Bull Spread', desc: 'Profit from moderate rise.' },
         { name: 'Bear Spread', desc: 'Profit from moderate drop.' },
         { name: 'Straddle', desc: 'Profit from high volatility.' },
+        { name: 'Strap', desc: 'Volatile, biased upwards (2 Calls, 1 Put).' },
+        { name: 'Strip', desc: 'Volatile, biased downwards (1 Call, 2 Puts).' },
         { name: 'Strangle', desc: 'Profit from low volatility (Short).' },
         { name: 'Butterfly Spread', desc: 'Profit from exact target.' },
     ];

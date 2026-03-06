@@ -4,6 +4,7 @@ import OptionLegEditor from './components/OptionLegEditor';
 import StrategySelector from './components/StrategySelector';
 import PayoffTable from './components/PayoffTable';
 import OptionValueTable from './components/OptionValueTable';
+import KeyMetricsPanel from './components/KeyMetricsPanel';
 import EducationPanel from './components/EducationPanel';
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
                   <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-primary shadow-[0_0_10px_rgba(168,85,247,0.5)]"></div> Total PnL</div>
                 </div>
               </div>
+              <KeyMetricsPanel />
               <div className="flex-1 bg-background/30 rounded-2xl border border-white/5">
                 <ChartVisualizer />
               </div>

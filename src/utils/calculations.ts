@@ -2,12 +2,20 @@ import type { OptionLeg, ChartDataPoint } from '../types/OptionTypes';
 
 export const calculatePayoff = (spot: number, leg: OptionLeg): number => {
     const isCall = leg.type === 'Call';
+    const isPut = leg.type === 'Put';
+    const isStock = leg.type === 'Stock';
     const isLong = leg.position === 'Long';
+
+    if (isStock) {
+        // For stock, "premium" acts as the entry price (cost).
+        const value = isLong ? (spot - leg.premium) : (leg.premium - spot);
+        return value * leg.quantity;
+    }
 
     let intrinsicValue = 0;
     if (isCall) {
         intrinsicValue = Math.max(0, spot - leg.strike);
-    } else {
+    } else if (isPut) {
         intrinsicValue = Math.max(0, leg.strike - spot);
     }
 
@@ -17,7 +25,7 @@ export const calculatePayoff = (spot: number, leg: OptionLeg): number => {
     // Profit = Payoff - Initial Cost (if long), Cost - Payoff (if short)
     const profit = isLong ? (payoff - cost) : (cost - payoff);
 
-    return profit; // Assuming multiplier of 100 is handled at the display level if needed. Lecture just uses standard units.
+    return profit;
 };
 
 export const generateChartData = (
