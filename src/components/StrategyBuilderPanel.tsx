@@ -20,8 +20,8 @@ export default function StrategyBuilderPanel() {
         : null;
 
     return (
-        <div className="glass rounded-3xl p-4 md:p-6 lg:max-h-[calc(100vh-4rem)] lg:overflow-hidden">
-            <div className="border-b border-white/10 pb-4">
+        <div className="glass rounded-3xl p-4 md:p-6 lg:flex lg:max-h-[calc(100vh-4rem)] lg:flex-col lg:overflow-hidden">
+            <div className="border-b border-white/10 pb-4 lg:shrink-0">
                 <div className="flex items-start justify-between gap-3">
                     <div>
                         <h2 className="text-lg font-bold md:text-xl">Strategy Builder</h2>
@@ -79,9 +79,12 @@ export default function StrategyBuilderPanel() {
                 </div>
             </div>
 
-            <div className="mt-4 lg:max-h-[calc(100vh-16.5rem)] lg:overflow-y-auto lg:pr-2">
+            <div className="mt-4 pb-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 lg:pb-6">
                 {activeView === 'presets' ? (
-                    <StrategySelector onStrategyApplied={() => setActiveView('legs')} />
+                    <StrategySelector
+                        onStrategyApplied={() => setActiveView('legs')}
+                        useInternalScroll={false}
+                    />
                 ) : (
                     <OptionLegEditor />
                 )}

@@ -21,9 +21,13 @@ const materializeLegs = (preset: StrategyPreset, spotPrice: number): OptionLeg[]
 
 interface StrategySelectorProps {
     onStrategyApplied?: () => void;
+    useInternalScroll?: boolean;
 }
 
-export default function StrategySelector({ onStrategyApplied }: StrategySelectorProps) {
+export default function StrategySelector({
+    onStrategyApplied,
+    useInternalScroll = true,
+}: StrategySelectorProps) {
     const { selectedStrategy, setLegsBulk, setSelectedStrategy, spotPrice } = useOptions();
     const [activeCategory, setActiveCategory] = useState<StrategyCategory>('Bullish');
     const activeStrategyId = selectedStrategy?.id ?? null;
@@ -128,7 +132,7 @@ export default function StrategySelector({ onStrategyApplied }: StrategySelector
                         </p>
                     </div>
                 </div>
-                <div className="max-h-[18.5rem] overflow-y-auto pr-1">
+                <div className={useInternalScroll ? 'max-h-[18.5rem] overflow-y-auto pr-1' : ''}>
                     <div className="grid grid-cols-1 gap-2">
                         {groupedStrategyPresets[activeCategory].map(renderStrategyCard)}
                     </div>
