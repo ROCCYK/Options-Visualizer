@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { OptionLeg } from '../src/types/OptionTypes.ts';
 import {
+    calculateCurrentTimeValue,
     calculateDisplayDomain,
     calculatePayoff,
     calculateStrategyMetrics,
@@ -31,6 +32,23 @@ test('calculatePayoff matches canonical option and stock payoffs', () => {
     assert.equal(
         calculatePayoff(120, createLeg({ type: 'Stock', position: 'Long', premium: 100 })),
         20
+    );
+});
+
+test('calculateCurrentTimeValue uses premium minus intrinsic value', () => {
+    assert.equal(
+        calculateCurrentTimeValue(105, createLeg({ type: 'Call', strike: 100, premium: 7, quantity: 2 })),
+        4
+    );
+
+    assert.equal(
+        calculateCurrentTimeValue(95, createLeg({ type: 'Put', strike: 100, premium: 3 })),
+        -2
+    );
+
+    assert.equal(
+        calculateCurrentTimeValue(120, createLeg({ type: 'Stock', premium: 100 })),
+        null
     );
 });
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useOptions } from '../context/useOptions';
-import { calculateOptionIntrinsicValue } from '../utils/calculations';
+import { calculateCurrentTimeValue, calculateOptionIntrinsicValue } from '../utils/calculations';
 
 export default function OptionValueTable() {
     const { legs, spotPrice } = useOptions();
@@ -14,6 +14,9 @@ export default function OptionValueTable() {
         const intrinsicValue = leg.type === 'Stock'
             ? null
             : calculateOptionIntrinsicValue(spotPrice, leg) * leg.quantity;
+        const timeValue = leg.type === 'Stock'
+            ? null
+            : calculateCurrentTimeValue(spotPrice, leg);
 
         return {
             id: leg.id,
@@ -26,6 +29,7 @@ export default function OptionValueTable() {
             isLong,
             enteredValue,
             intrinsicValue,
+            timeValue,
         };
     });
 
@@ -103,10 +107,20 @@ export default function OptionValueTable() {
                                         <span className="font-bold text-foreground/50">N/A</span>
                                     ) : (
                                         <>
-                                            <span className="font-bold text-foreground/60">Not modeled</span>
+                                            <span
+                                                className={`font-bold ${
+                                                    (row.timeValue ?? 0) > 0
+                                                        ? 'text-amber-300'
+                                                        : (row.timeValue ?? 0) < 0
+                                                            ? 'text-red-300'
+                                                            : 'text-foreground'
+                                                }`}
+                                            >
+                                                ${row.timeValue?.toFixed(2)}
+                                            </span>
                                             {showBreakdown && (
                                                 <div className="text-[10px] text-foreground/50 mt-1 whitespace-nowrap font-mono opacity-80">
-                                                    Requires a live option pricing model
+                                                    {row.enteredValue.toFixed(2)} Premium - {row.intrinsicValue?.toFixed(2)} IV
                                                 </div>
                                             )}
                                         </>
@@ -119,7 +133,7 @@ export default function OptionValueTable() {
             </div>
 
             <div className="mt-4 p-4 bg-primary/5 rounded-xl border border-primary/20 text-sm text-foreground/80">
-                <p><strong>Educational Note:</strong> This app accurately models <strong>expiration PnL</strong> and <strong>current intrinsic value</strong>. It does <strong>not</strong> calculate a live option mark, so current <strong>time value</strong> is intentionally left unmodeled until the app has time-to-expiry and volatility inputs.</p>
+                <p><strong>Educational Note:</strong> Current <strong>time value</strong> is shown here using the classroom formula <strong>Premium - Intrinsic Value</strong>, based on the premium entered for each leg rather than a live market option price.</p>
             </div>
         </div>
     );

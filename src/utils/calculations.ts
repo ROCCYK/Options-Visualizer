@@ -103,6 +103,17 @@ export const calculateOptionIntrinsicValue = (spot: number, leg: OptionLeg): num
     return 0;
 };
 
+export const calculateCurrentTimeValue = (spot: number, leg: OptionLeg): number | null => {
+    if (leg.type === 'Stock') {
+        return null;
+    }
+
+    const premium = leg.premium * leg.quantity;
+    const intrinsicValue = calculateOptionIntrinsicValue(spot, leg) * leg.quantity;
+
+    return premium - intrinsicValue;
+};
+
 export const calculateGrossLegValueAtExpiration = (spot: number, leg: OptionLeg): number => {
     if (leg.type === 'Stock') {
         return spot * leg.quantity;
