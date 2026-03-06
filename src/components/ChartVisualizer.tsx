@@ -2,9 +2,10 @@ import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { useOptions } from '../context/OptionContext';
 import { calculateDisplayDomain, generateChartData } from '../utils/calculations';
+import { categoryThemeMap, type StrategyCategory } from '../utils/strategyPresets';
 
 export default function ChartVisualizer() {
-    const { legs, spotPrice } = useOptions();
+    const { legs, selectedStrategy, spotPrice } = useOptions();
     const domain = useMemo(() => calculateDisplayDomain(legs, spotPrice), [legs, spotPrice]);
 
     const data = useMemo(() => {
@@ -50,10 +51,24 @@ export default function ChartVisualizer() {
     const maxProfit = Math.max(...data.map(d => d.totalProfit), 0);
     const minProfit = Math.min(...data.map(d => d.totalProfit), 0);
     const gradientOffset = (maxProfit === minProfit) ? 0 : maxProfit / (maxProfit - minProfit);
+    const displayStrategy = selectedStrategy ?? { name: 'Custom Strategy', category: 'Manual' };
+    const categoryBadgeClassName = displayStrategy.category in categoryThemeMap
+        ? categoryThemeMap[displayStrategy.category as StrategyCategory].badgeClassName
+        : 'border-white/10 bg-white/5 text-foreground/65';
 
     return (
-        <div className="w-full h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
+        <div className="w-full">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3 px-1">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-foreground/45">Selected Strategy</p>
+                    <h3 className="mt-1 text-lg font-semibold text-foreground">{displayStrategy.name}</h3>
+                </div>
+                <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${categoryBadgeClassName}`}>
+                    {displayStrategy.category}
+                </span>
+            </div>
+            <div className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                     <defs>
                         <linearGradient id="splitColor" x1="0" y1="0" x2="0" y2="1">
@@ -104,7 +119,8 @@ export default function ChartVisualizer() {
                     />
 
                 </LineChart>
-            </ResponsiveContainer>
+                </ResponsiveContainer>
+            </div>
         </div>
     );
 }
