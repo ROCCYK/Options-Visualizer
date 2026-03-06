@@ -6,13 +6,13 @@ export default function KeyMetricsPanel() {
 
     if (legs.length === 0) return null;
 
-    // Use a very wide data range to reliably find absolute max/min and break-evens
+    // Use a realistic spot domain: the underlying cannot trade below zero.
     const strikes = legs.map(l => l.strike || spotPrice); // fallback to spot for stock
-    const minStrike = Math.min(...strikes, spotPrice) * 0.1;
-    const maxStrike = Math.max(...strikes, spotPrice) * 3;
+    const minSpot = 0;
+    const maxSpot = Math.max(...strikes, spotPrice) * 3;
 
-    // Generate data from near 0 to very high to evaluate tail risks
-    const data = generateChartData(legs, Math.floor(minStrike), Math.ceil(maxStrike), 1);
+    // Scan from 0 to a high spot to evaluate worst-case loss and upside tail behavior.
+    const data = generateChartData(legs, minSpot, Math.ceil(maxSpot), 1);
 
     // Find Max Profit and Max Loss
     let maxProfit = -Infinity;
@@ -43,18 +43,16 @@ export default function KeyMetricsPanel() {
         return val > arr[i - 1] + 1; // only keep if it's a distinct crossing point
     });
 
-    // Determine if tails are infinite
+    // Determine whether the upper tail is unbounded.
+    // For these instruments, spot is bounded below by 0, so downside loss is finite at spot = 0.
     const lastProfit = data[data.length - 1].totalProfit;
-    const firstProfit = data[0].totalProfit;
     const secondLastProfit = data[data.length - 2].totalProfit;
-    const secondFirstProfit = data[1].totalProfit;
 
     const isUpsideInfinite = (lastProfit - secondLastProfit) > 0;
-    const isDownsideInfiniteRisk = (firstProfit - secondFirstProfit) > 0; // as spot goes to 0
     const isUpsideInfiniteRisk = (lastProfit - secondLastProfit) < 0;
 
     const displayMaxProfit = isUpsideInfinite ? "Unlimited" : `$${maxProfit.toFixed(2)}`;
-    const displayMaxLoss = (isDownsideInfiniteRisk || isUpsideInfiniteRisk) ? "Unlimited" : `$${Math.abs(maxLoss).toFixed(2)}`;
+    const displayMaxLoss = isUpsideInfiniteRisk ? "Unlimited" : `$${Math.abs(maxLoss).toFixed(2)}`;
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
