@@ -3,6 +3,7 @@ import ChartVisualizer from './components/ChartVisualizer';
 import OptionLegEditor from './components/OptionLegEditor';
 import StrategySelector from './components/StrategySelector';
 import PayoffTable from './components/PayoffTable';
+import OptionValueTable from './components/OptionValueTable';
 import EducationPanel from './components/EducationPanel';
 
 function App() {
@@ -31,6 +32,9 @@ function App() {
                 <ChartVisualizer />
               </div>
               <PayoffTable />
+              <div className="mt-12 border-t border-white/10 pt-8">
+                <OptionValueTable />
+              </div>
             </div>
 
             <EducationPanel />
