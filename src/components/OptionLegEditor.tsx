@@ -19,7 +19,7 @@ export default function OptionLegEditor() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-white/10">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-white/10">
                 <div>
                     <label className="text-sm text-foreground/70 block mb-1">Spot Price</label>
                     <div className="relative">
@@ -72,7 +72,7 @@ export default function OptionLegEditor() {
                             </select>
                         </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pr-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pr-6 sm:pr-2">
                             <div>
                                 <label className="text-xs text-foreground/50 block mb-1">Strike</label>
                                 <input

@@ -23,7 +23,7 @@ export default function PayoffTable() {
 
     return (
         <div className="mt-8">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row gap-2 sm:justify-between sm:items-center mb-4">
                 <h3 className="text-lg font-bold text-purple-300">Payoff Table</h3>
                 <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground/70 hover:text-foreground transition-colors">
                     <input

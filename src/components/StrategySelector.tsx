@@ -93,12 +93,12 @@ export default function StrategySelector() {
             <div className="flex items-center gap-2 mb-3 text-sm font-medium text-foreground/70">
                 <BookOpen size={16} /> <span>Educational Presets</span>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                 {strategies.map(s => (
                     <button
                         key={s.name}
                         onClick={() => applyStrategy(s.name)}
-                        className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary/50 text-foreground px-3 py-2 rounded-lg transition-all flex-grow sm:flex-grow-0 text-center"
+                        className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary/50 text-foreground py-2 px-2 sm:px-3 rounded-lg transition-all text-center flex items-center justify-center h-full"
                         title={s.desc}
                     >
                         {s.name}
@@ -106,7 +106,7 @@ export default function StrategySelector() {
                 ))}
                 <button
                     onClick={() => applyStrategy('Clear')}
-                    className="text-xs w-full sm:w-auto mt-2 sm:mt-0 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 px-3 py-2 rounded-lg transition-all sm:ml-auto"
+                    className="text-xs w-full sm:col-span-full lg:col-span-1 lg:ml-auto bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 py-2 px-3 rounded-lg transition-all"
                 >
                     Clear
                 </button>
