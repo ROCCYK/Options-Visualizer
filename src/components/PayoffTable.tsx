@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useOptions } from '../context/OptionContext';
 import {
     calculateDisplayDomain,
@@ -11,11 +11,33 @@ import {
 export default function PayoffTable() {
     const { legs, spotPrice } = useOptions();
     const [showMath, setShowMath] = useState(false);
+    const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+    const spotRowRef = useRef<HTMLTableRowElement | null>(null);
+    const hasLegs = legs.length > 0;
+    const domain = hasLegs ? calculateDisplayDomain(legs, spotPrice) : null;
+    const data = domain
+        ? generateChartData(legs, domain.chartMinSpot, domain.chartMaxSpot, domain.chartStep)
+        : [];
+    const closestSpotIndex = data.reduce((closestIndex, row, index) => {
+        const currentDistance = Math.abs(row.spotPrice - spotPrice);
+        const closestDistance = Math.abs(data[closestIndex].spotPrice - spotPrice);
 
-    if (legs.length === 0) return null;
+        return currentDistance < closestDistance ? index : closestIndex;
+    }, 0);
 
-    const domain = calculateDisplayDomain(legs, spotPrice);
-    const data = generateChartData(legs, domain.chartMinSpot, domain.chartMaxSpot, domain.chartStep);
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        const row = spotRowRef.current;
+
+        if (!hasLegs || !container || !row) {
+            return;
+        }
+
+        const targetScrollTop = row.offsetTop - ((container.clientHeight - row.clientHeight) / 2);
+        container.scrollTop = Math.max(0, targetScrollTop);
+    }, [closestSpotIndex, showMath]);
+
+    if (!hasLegs) return null;
 
     return (
         <div className="mt-8">
@@ -31,7 +53,7 @@ export default function PayoffTable() {
                     Show detailed math
                 </label>
             </div>
-            <div className="overflow-auto rounded-xl border border-white/10 max-h-[500px]">
+            <div ref={scrollContainerRef} className="overflow-auto rounded-xl border border-white/10 max-h-[500px]">
                 <table className="w-full text-sm text-left border-collapse min-w-[500px]">
                     <thead className="bg-background/95 backdrop-blur sticky top-0 border-b border-white/10 uppercase text-xs text-foreground/60 z-10 shadow-sm">
                         <tr>
@@ -45,9 +67,29 @@ export default function PayoffTable() {
                         </tr>
                     </thead>
                     <tbody>
-                        {data.map((row, i) => (
-                            <tr key={i} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                                <td className="px-4 py-3 font-medium">${row.spotPrice.toFixed(2)}</td>
+                        {data.map((row, i) => {
+                            const isCurrentSpotRow = i === closestSpotIndex;
+
+                            return (
+                                <tr
+                                    key={i}
+                                    ref={isCurrentSpotRow ? spotRowRef : null}
+                                    className={`border-b border-white/5 transition-colors ${
+                                        isCurrentSpotRow ? 'bg-primary/10 hover:bg-primary/15' : 'hover:bg-white/5'
+                                    }`}
+                                >
+                                    <td className="px-4 py-3 font-medium">
+                                        <div className="flex items-center gap-2">
+                                            <span className={isCurrentSpotRow ? 'text-primary font-semibold' : ''}>
+                                                ${row.spotPrice.toFixed(2)}
+                                            </span>
+                                            {isCurrentSpotRow && (
+                                                <span className="rounded-full border border-primary/30 bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
+                                                    Current Spot
+                                                </span>
+                                            )}
+                                        </div>
+                                    </td>
                                 {legs.map(leg => {
                                     const val = row[leg.id];
                                     const isCall = leg.type === 'Call';
@@ -132,8 +174,9 @@ export default function PayoffTable() {
                                 <td className={`px-4 py-3 font-bold ${row.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                                     {row.totalProfit >= 0 ? '+' : ''}${row.totalProfit.toFixed(2)}
                                 </td>
-                            </tr>
-                        ))}
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
