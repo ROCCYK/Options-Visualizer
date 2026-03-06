@@ -5,11 +5,11 @@ import { calculateDisplayDomain, generateChartData } from '../utils/calculations
 
 export default function ChartVisualizer() {
     const { legs, spotPrice } = useOptions();
+    const domain = useMemo(() => calculateDisplayDomain(legs, spotPrice), [legs, spotPrice]);
 
     const data = useMemo(() => {
-        const domain = calculateDisplayDomain(legs, spotPrice);
-        return generateChartData(legs, domain.minSpot, domain.maxSpot, domain.chartStep);
-    }, [legs, spotPrice]);
+        return generateChartData(legs, domain.chartMinSpot, domain.chartMaxSpot, domain.chartStep);
+    }, [domain, legs]);
 
     if (legs.length === 0) {
         return (
@@ -65,7 +65,7 @@ export default function ChartVisualizer() {
                     <XAxis
                         dataKey="spotPrice"
                         type="number"
-                        domain={['dataMin', 'dataMax']}
+                        domain={[domain.chartMinSpot, domain.chartMaxSpot]}
                         stroke="rgba(255,255,255,0.3)"
                         tickFormatter={(val) => `$${val}`}
                         tick={{ fontSize: 12 }}

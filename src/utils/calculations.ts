@@ -100,8 +100,9 @@ export const generateChartData = (
     step = 1
 ): ChartDataPoint[] => {
     const data: ChartDataPoint[] = [];
+    const safeStep = Math.max(step, 1);
 
-    for (let spot = minSpot; spot <= maxSpot; spot += step) {
+    const addPoint = (spot: number) => {
         const point: ChartDataPoint = {
             spotPrice: spot,
             totalProfit: 0,
@@ -116,6 +117,15 @@ export const generateChartData = (
 
         point.totalProfit = totalProfit;
         data.push(point);
+    };
+
+    for (let spot = minSpot; spot <= maxSpot; spot += safeStep) {
+        addPoint(spot);
+    }
+
+    const lastSpot = data[data.length - 1]?.spotPrice;
+    if (lastSpot === undefined || Math.abs(lastSpot - maxSpot) > 1e-6) {
+        addPoint(maxSpot);
     }
 
     return data;
@@ -203,28 +213,33 @@ export const calculateStrategyMetrics = (legs: OptionLeg[]): StrategyMetrics => 
 };
 
 export interface DisplayDomain {
-    minSpot: number;
-    maxSpot: number;
+    chartMinSpot: number;
+    chartMaxSpot: number;
     chartStep: number;
-    tableStep: number;
 }
 
 export const calculateDisplayDomain = (legs: OptionLeg[], spotPrice: number): DisplayDomain => {
     const metrics = calculateStrategyMetrics(legs);
     const kinkSpots = getUniqueKinkSpots(legs);
-    const anchors = [0, spotPrice, ...kinkSpots, ...metrics.breakEvens]
+    const chartAnchors = [spotPrice, ...kinkSpots, ...metrics.breakEvens]
         .filter(value => Number.isFinite(value) && value >= 0);
-
-    const maxAnchor = Math.max(...anchors, 1);
-    const padding = Math.max(10, Math.ceil(maxAnchor * 0.15));
-    const maxSpot = Math.ceil(maxAnchor + padding);
-    const width = Math.max(1, maxSpot);
+    const maxAnchor = Math.max(...chartAnchors, 1);
+    const minChartAnchor = Math.min(...chartAnchors, spotPrice);
+    const maxChartAnchor = Math.max(...chartAnchors, spotPrice);
+    const chartPadding = Math.max(10, Math.ceil(maxAnchor * 0.15));
+    const chartHalfWidth = Math.max(
+        Math.ceil(Math.max(spotPrice, 1) * 0.5),
+        Math.ceil(spotPrice - Math.max(0, minChartAnchor - chartPadding)),
+        Math.ceil(maxChartAnchor + chartPadding - spotPrice)
+    );
+    const chartMinSpot = Math.floor(spotPrice - chartHalfWidth);
+    const chartMaxSpot = Math.ceil(spotPrice + chartHalfWidth);
+    const chartWidth = Math.max(1, chartMaxSpot - chartMinSpot);
 
     return {
-        minSpot: 0,
-        maxSpot,
-        chartStep: Math.max(1, Math.ceil(width / 240)),
-        tableStep: Math.max(1, Math.ceil(width / 24)),
+        chartMinSpot,
+        chartMaxSpot,
+        chartStep: Math.max(1, Math.ceil(chartWidth / 240)),
     };
 };
 

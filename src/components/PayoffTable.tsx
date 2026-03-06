@@ -15,7 +15,7 @@ export default function PayoffTable() {
     if (legs.length === 0) return null;
 
     const domain = calculateDisplayDomain(legs, spotPrice);
-    const data = generateChartData(legs, domain.minSpot, domain.maxSpot, domain.tableStep);
+    const data = generateChartData(legs, domain.chartMinSpot, domain.chartMaxSpot, domain.chartStep);
 
     return (
         <div className="mt-8">
