@@ -1,8 +1,77 @@
 import type { OptionLeg, ChartDataPoint } from '../types/OptionTypes';
 
+const EPSILON = 1e-9;
+
+const isApproximatelyZero = (value: number): boolean => Math.abs(value) < EPSILON;
+
+const addUniqueValue = (values: number[], candidate: number) => {
+    if (!Number.isFinite(candidate) || candidate < -EPSILON) {
+        return;
+    }
+
+    const normalized = isApproximatelyZero(candidate) ? 0 : candidate;
+    const alreadyIncluded = values.some(value => Math.abs(value - normalized) < 1e-6);
+
+    if (!alreadyIncluded) {
+        values.push(normalized);
+    }
+};
+
+const getUniqueKinkSpots = (legs: OptionLeg[]): number[] =>
+    Array.from(
+        new Set(
+            legs
+                .filter(leg => leg.type !== 'Stock')
+                .map(leg => Math.max(0, leg.strike))
+        )
+    ).sort((a, b) => a - b);
+
+const calculateSlopeAtSpot = (spot: number, leg: OptionLeg): number => {
+    if (leg.type === 'Stock') {
+        return leg.position === 'Long' ? leg.quantity : -leg.quantity;
+    }
+
+    if (leg.type === 'Call') {
+        if (spot > leg.strike) {
+            return leg.position === 'Long' ? leg.quantity : -leg.quantity;
+        }
+
+        return 0;
+    }
+
+    if (spot < leg.strike) {
+        return leg.position === 'Long' ? -leg.quantity : leg.quantity;
+    }
+
+    return 0;
+};
+
+const calculateTotalSlopeAtSpot = (spot: number, legs: OptionLeg[]): number =>
+    legs.reduce((total, leg) => total + calculateSlopeAtSpot(spot, leg), 0);
+
+export const calculateOptionIntrinsicValue = (spot: number, leg: OptionLeg): number => {
+    if (leg.type === 'Call') {
+        return Math.max(0, spot - leg.strike);
+    }
+
+    if (leg.type === 'Put') {
+        return Math.max(0, leg.strike - spot);
+    }
+
+    return 0;
+};
+
+export const calculateGrossLegValueAtExpiration = (spot: number, leg: OptionLeg): number => {
+    if (leg.type === 'Stock') {
+        return spot * leg.quantity;
+    }
+
+    return calculateOptionIntrinsicValue(spot, leg) * leg.quantity;
+};
+
+export const calculateEntryCost = (leg: OptionLeg): number => leg.premium * leg.quantity;
+
 export const calculatePayoff = (spot: number, leg: OptionLeg): number => {
-    const isCall = leg.type === 'Call';
-    const isPut = leg.type === 'Put';
     const isStock = leg.type === 'Stock';
     const isLong = leg.position === 'Long';
 
@@ -12,21 +81,17 @@ export const calculatePayoff = (spot: number, leg: OptionLeg): number => {
         return value * leg.quantity;
     }
 
-    let intrinsicValue = 0;
-    if (isCall) {
-        intrinsicValue = Math.max(0, spot - leg.strike);
-    } else if (isPut) {
-        intrinsicValue = Math.max(0, leg.strike - spot);
-    }
-
-    const payoff = intrinsicValue * leg.quantity;
-    const cost = leg.premium * leg.quantity;
+    const payoff = calculateGrossLegValueAtExpiration(spot, leg);
+    const cost = calculateEntryCost(leg);
 
     // Profit = Payoff - Initial Cost (if long), Cost - Payoff (if short)
     const profit = isLong ? (payoff - cost) : (cost - payoff);
 
     return profit;
 };
+
+export const calculateTotalProfit = (spot: number, legs: OptionLeg[]): number =>
+    legs.reduce((total, leg) => total + calculatePayoff(spot, leg), 0);
 
 export const generateChartData = (
     legs: OptionLeg[],
@@ -42,18 +107,125 @@ export const generateChartData = (
             totalProfit: 0,
         };
 
-        let total = 0;
+        let totalProfit = 0;
         legs.forEach(leg => {
             const legProfit = calculatePayoff(spot, leg);
             point[leg.id] = legProfit;
-            total += legProfit;
+            totalProfit += legProfit;
         });
 
-        point.totalProfit = total;
+        point.totalProfit = totalProfit;
         data.push(point);
     }
 
     return data;
+};
+
+export interface StrategyMetrics {
+    maxProfit: number;
+    maxLoss: number;
+    breakEvens: number[];
+    isMaxProfitUnlimited: boolean;
+    isMaxLossUnlimited: boolean;
+}
+
+export const calculateStrategyMetrics = (legs: OptionLeg[]): StrategyMetrics => {
+    if (legs.length === 0) {
+        return {
+            maxProfit: 0,
+            maxLoss: 0,
+            breakEvens: [],
+            isMaxProfitUnlimited: false,
+            isMaxLossUnlimited: false,
+        };
+    }
+
+    const kinkSpots = getUniqueKinkSpots(legs).filter(spot => spot > 0);
+    const boundarySpots = [0, ...kinkSpots];
+    const boundaryProfits = boundarySpots.map(spot => calculateTotalProfit(spot, legs));
+
+    let maxProfit = Math.max(...boundaryProfits);
+    let maxLoss = Math.min(...boundaryProfits);
+
+    const breakEvens: number[] = [];
+    let leftSpot = 0;
+    let leftProfit = boundaryProfits[0];
+    let intervalSlope = calculateTotalSlopeAtSpot(EPSILON, legs);
+
+    if (isApproximatelyZero(leftProfit)) {
+        addUniqueValue(breakEvens, 0);
+    }
+
+    kinkSpots.forEach((rightSpot, index) => {
+        if (rightSpot > leftSpot + EPSILON && Math.abs(intervalSlope) > EPSILON) {
+            const root = leftSpot - (leftProfit / intervalSlope);
+            if (root > leftSpot + EPSILON && root < rightSpot - EPSILON) {
+                addUniqueValue(breakEvens, root);
+            }
+        }
+
+        const rightProfit = boundaryProfits[index + 1];
+        if (isApproximatelyZero(rightProfit)) {
+            addUniqueValue(breakEvens, rightSpot);
+        }
+
+        leftSpot = rightSpot;
+        leftProfit = rightProfit;
+        intervalSlope = calculateTotalSlopeAtSpot(rightSpot + EPSILON, legs);
+    });
+
+    const upperTailSlope = intervalSlope;
+    const isMaxProfitUnlimited = upperTailSlope > EPSILON;
+    const isMaxLossUnlimited = upperTailSlope < -EPSILON;
+
+    if (Math.abs(upperTailSlope) > EPSILON) {
+        const root = leftSpot - (leftProfit / upperTailSlope);
+        if (root > leftSpot + EPSILON) {
+            addUniqueValue(breakEvens, root);
+        }
+    }
+
+    if (isMaxProfitUnlimited) {
+        maxProfit = Infinity;
+    }
+
+    if (isMaxLossUnlimited) {
+        maxLoss = -Infinity;
+    }
+
+    return {
+        maxProfit,
+        maxLoss,
+        breakEvens: breakEvens.sort((a, b) => a - b),
+        isMaxProfitUnlimited,
+        isMaxLossUnlimited,
+    };
+};
+
+export interface DisplayDomain {
+    minSpot: number;
+    maxSpot: number;
+    chartStep: number;
+    tableStep: number;
+}
+
+export const calculateDisplayDomain = (legs: OptionLeg[], spotPrice: number): DisplayDomain => {
+    const metrics = calculateStrategyMetrics(legs);
+    const kinkSpots = getUniqueKinkSpots(legs);
+    const anchors = [0, spotPrice, ...kinkSpots, ...metrics.breakEvens]
+        .filter(value => Number.isFinite(value) && value >= 0);
+
+    const maxAnchor = Math.max(...anchors, 1);
+    const padding = Math.max(10, Math.ceil(maxAnchor * 0.15));
+    const maxSpot = Math.ceil(maxAnchor + padding);
+    const width = Math.max(1, maxSpot);
+
+    return {
+        minSpot: 0,
+        maxSpot,
+        chartStep: Math.max(1, Math.ceil(width / 240)),
+        tableStep: Math.max(1, Math.ceil(width / 24)),
+    };
 };
 
 // Simplified Black-Scholes estimate for educational purposes (IV + TV)

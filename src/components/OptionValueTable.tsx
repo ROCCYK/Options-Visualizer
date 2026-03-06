@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useOptions } from '../context/OptionContext';
+import { calculateOptionIntrinsicValue } from '../utils/calculations';
 
 export default function OptionValueTable() {
     const { legs, spotPrice } = useOptions();
@@ -9,31 +10,19 @@ export default function OptionValueTable() {
 
     // Calculate current implied Option Value, Intrinsic Value, and Time Value for each leg
     const rowData = legs.map(leg => {
-        const isCall = leg.type === 'Call';
         const isLong = leg.position === 'Long';
+        const contractValue = leg.type === 'Stock' ? spotPrice : leg.premium;
 
-        // Option Value is simply the premium (current market price of the option)
-        let optionValue = leg.premium;
-
-        // Intrinsic Value calculation based on current Spot Price
-        const targetStrike = leg.strike;
-        let intrinsicValue = 0;
-
-        if (isCall) {
-            intrinsicValue = Math.max(0, spotPrice - targetStrike);
-        } else if (leg.type === 'Put') {
-            intrinsicValue = Math.max(0, targetStrike - spotPrice);
-        } else {
-            // For Stock, Intrinsic Value / Time value don't exactly apply in an options sense.
-            // Value of stock is just Spot Price.
-            optionValue = spotPrice; // Current mark-to-market value is Spot
-            intrinsicValue = spotPrice;
-        }
+        // Option Value is represented at the leg level, so quantity is included here.
+        let optionValue = contractValue * leg.quantity;
+        let intrinsicValue = calculateOptionIntrinsicValue(spotPrice, leg) * leg.quantity;
 
         // Time Value = Option Value - Intrinsic Value
-        // Note: For OTM options, IV is 0, so TV = Option Value.
-        let timeValue = Math.max(0, optionValue - intrinsicValue);
-        if (leg.type === 'Stock') timeValue = 0;
+        let timeValue = optionValue - intrinsicValue;
+        if (leg.type === 'Stock') {
+            intrinsicValue = 0;
+            timeValue = 0;
+        }
 
         return {
             id: leg.id,
@@ -43,8 +32,8 @@ export default function OptionValueTable() {
             premium: leg.premium,
             quantity: leg.quantity,
             color: leg.color,
-            isCall,
             isLong,
+            contractValue,
             optionValue,
             intrinsicValue,
             timeValue
@@ -85,7 +74,7 @@ export default function OptionValueTable() {
                                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: row.color || 'white' }}></div>
                                         Leg {i + 1} <span className={row.isLong ? 'text-green-400' : 'text-red-400'}>({row.isLong ? 'Buy' : 'Sell'} {row.type})</span>
                                     </div>
-                                    <div className="text-[10px] text-foreground/50 ml-4">Strike: ${row.strike}</div>
+                                    <div className="text-[10px] text-foreground/50 ml-4">Strike: ${row.strike} | Qty: {row.quantity}</div>
                                 </td>
 
                                 <td className="px-4 py-3">
@@ -93,8 +82,13 @@ export default function OptionValueTable() {
                                 </td>
 
                                 <td className="px-4 py-3">
-                                    <span className="font-bold text-primary">${row.optionValue.toFixed(2)}</span>
-                                </td>
+                                        <span className="font-bold text-primary">${row.optionValue.toFixed(2)}</span>
+                                        {showBreakdown && (
+                                            <div className="text-[10px] text-foreground/50 mt-1 whitespace-nowrap font-mono opacity-80">
+                                                {row.contractValue.toFixed(2)} x {row.quantity}
+                                            </div>
+                                        )}
+                                    </td>
 
                                 <td className="px-4 py-3 min-w-[150px]">
                                     {row.type === 'Stock' ? (
@@ -104,10 +98,11 @@ export default function OptionValueTable() {
                                             <span className="font-bold text-green-300">${row.intrinsicValue.toFixed(2)}</span>
                                             {showBreakdown && (
                                                 <div className="text-[10px] text-foreground/50 mt-1 whitespace-nowrap font-mono opacity-80">
-                                                    {row.isCall
+                                                    {row.type === 'Call'
                                                         ? `max(0, ${spotPrice.toFixed(0)} Spot - ${row.strike} Strike)`
                                                         : `max(0, ${row.strike} Strike - ${spotPrice.toFixed(0)} Spot)`
                                                     }
+                                                    {row.quantity > 1 ? ` x ${row.quantity}` : ''}
                                                 </div>
                                             )}
                                         </>
@@ -119,10 +114,10 @@ export default function OptionValueTable() {
                                         <span className="font-bold text-foreground/50">N/A</span>
                                     ) : (
                                         <>
-                                            <span className="font-bold text-yellow-300">${row.timeValue.toFixed(2)}</span>
+                                        <span className="font-bold text-yellow-300">${row.timeValue.toFixed(2)}</span>
                                             {showBreakdown && (
                                                 <div className="text-[10px] text-foreground/50 mt-1 whitespace-nowrap font-mono opacity-80">
-                                                    {row.optionValue.toFixed(2)} Opt Value - {row.intrinsicValue.toFixed(2)} IV
+                                                    {row.optionValue.toFixed(2)} Value - {row.intrinsicValue.toFixed(2)} IV
                                                 </div>
                                             )}
                                         </>

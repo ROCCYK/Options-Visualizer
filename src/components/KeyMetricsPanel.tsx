@@ -1,64 +1,20 @@
 import { useOptions } from '../context/OptionContext';
-import { generateChartData } from '../utils/calculations';
+import { calculateStrategyMetrics } from '../utils/calculations';
 
 export default function KeyMetricsPanel() {
-    const { legs, spotPrice } = useOptions();
+    const { legs } = useOptions();
 
     if (legs.length === 0) return null;
 
-    // Use a realistic spot domain: the underlying cannot trade below zero.
-    const strikes = legs.map(l => l.strike || spotPrice); // fallback to spot for stock
-    const minSpot = 0;
-    const maxSpot = Math.max(...strikes, spotPrice) * 3;
-
-    // Scan from 0 to a high spot to evaluate worst-case loss and upside tail behavior.
-    const data = generateChartData(legs, minSpot, Math.ceil(maxSpot), 1);
-
-    // Find Max Profit and Max Loss
-    let maxProfit = -Infinity;
-    let maxLoss = Infinity;
-
-    // Find Break-Even spots
-    const breakEvens: number[] = [];
-    let prevProfit = data[0].totalProfit;
-
-    data.forEach((row, i) => {
-        if (row.totalProfit > maxProfit) maxProfit = row.totalProfit;
-        if (row.totalProfit < maxLoss) maxLoss = row.totalProfit;
-
-        // Detect sign change for Break-Even
-        if (i > 0) {
-            if ((prevProfit < 0 && row.totalProfit >= 0) || (prevProfit > 0 && row.totalProfit <= 0)) {
-                // Approximate exact break-even via linear interpolation (or just taking the closer spot)
-                // For educational purpose, the integer spot is usually close enough if step=1
-                breakEvens.push(row.spotPrice);
-            }
-        }
-        prevProfit = row.totalProfit;
-    });
-
-    // Clean up break evens if there are consecutive numbers (e.g., crossing 0 slowly)
-    const uniqueBreakEvens = breakEvens.filter((val, i, arr) => {
-        if (i === 0) return true;
-        return val > arr[i - 1] + 1; // only keep if it's a distinct crossing point
-    });
-
-    // Determine whether the upper tail is unbounded.
-    // For these instruments, spot is bounded below by 0, so downside loss is finite at spot = 0.
-    const lastProfit = data[data.length - 1].totalProfit;
-    const secondLastProfit = data[data.length - 2].totalProfit;
-
-    const isUpsideInfinite = (lastProfit - secondLastProfit) > 0;
-    const isUpsideInfiniteRisk = (lastProfit - secondLastProfit) < 0;
-
-    const displayMaxProfit = isUpsideInfinite ? "Unlimited" : `$${maxProfit.toFixed(2)}`;
-    const displayMaxLoss = isUpsideInfiniteRisk ? "Unlimited" : `$${Math.abs(maxLoss).toFixed(2)}`;
+    const metrics = calculateStrategyMetrics(legs);
+    const displayMaxProfit = metrics.isMaxProfitUnlimited ? "Unlimited" : `$${metrics.maxProfit.toFixed(2)}`;
+    const displayMaxLoss = metrics.isMaxLossUnlimited ? "Unlimited" : `$${Math.abs(metrics.maxLoss).toFixed(2)}`;
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
             <div className="glass p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-white/5 flex flex-col justify-center">
                 <div className="text-xs text-foreground/50 font-bold uppercase tracking-wider mb-1">Max Profit</div>
-                <div className={`text-xl font-bold ${isUpsideInfinite ? 'text-green-400' : 'text-primary'}`}>
+                <div className={`text-xl font-bold ${metrics.isMaxProfitUnlimited ? 'text-green-400' : 'text-primary'}`}>
                     {displayMaxProfit}
                 </div>
             </div>
@@ -73,8 +29,8 @@ export default function KeyMetricsPanel() {
             <div className="glass p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-white/5 flex flex-col justify-center">
                 <div className="text-xs text-foreground/50 font-bold uppercase tracking-wider mb-1">Break-Even Point(s)</div>
                 <div className="text-xl font-bold text-foreground overflow-x-auto whitespace-nowrap">
-                    {uniqueBreakEvens.length > 0
-                        ? uniqueBreakEvens.map(bp => `$${bp.toFixed(2)}`).join(' , ')
+                    {metrics.breakEvens.length > 0
+                        ? metrics.breakEvens.map(bp => `$${bp.toFixed(2)}`).join(', ')
                         : 'None'}
                 </div>
             </div>

@@ -1,22 +1,14 @@
 import { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { useOptions } from '../context/OptionContext';
-import { generateChartData } from '../utils/calculations';
+import { calculateDisplayDomain, generateChartData } from '../utils/calculations';
 
 export default function ChartVisualizer() {
     const { legs, spotPrice } = useOptions();
 
     const data = useMemo(() => {
-        let minStrike = spotPrice * 0.5;
-        let maxStrike = spotPrice * 1.5;
-
-        if (legs.length > 0) {
-            const strikes = legs.map(l => l.strike);
-            minStrike = Math.min(...strikes) * 0.7;
-            maxStrike = Math.max(...strikes) * 1.3;
-        }
-
-        return generateChartData(legs, Math.floor(minStrike), Math.ceil(maxStrike), 1);
+        const domain = calculateDisplayDomain(legs, spotPrice);
+        return generateChartData(legs, domain.minSpot, domain.maxSpot, domain.chartStep);
     }, [legs, spotPrice]);
 
     if (legs.length === 0) {
@@ -92,7 +84,7 @@ export default function ChartVisualizer() {
                     {legs.map((leg) => (
                         <Line
                             key={leg.id}
-                            type="monotone"
+                            type="linear"
                             dataKey={leg.id}
                             stroke={leg.color || "white"}
                             strokeWidth={2}
@@ -103,7 +95,7 @@ export default function ChartVisualizer() {
                     ))}
 
                     <Line
-                        type="monotone"
+                        type="linear"
                         dataKey="totalProfit"
                         stroke="url(#splitColor)"
                         strokeWidth={3}

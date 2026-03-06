@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { useOptions } from '../context/OptionContext';
-import { generateChartData } from '../utils/calculations';
+import {
+    calculateDisplayDomain,
+    calculateEntryCost,
+    calculateGrossLegValueAtExpiration,
+    calculateOptionIntrinsicValue,
+    generateChartData
+} from '../utils/calculations';
 
 export default function PayoffTable() {
     const { legs, spotPrice } = useOptions();
@@ -8,18 +14,8 @@ export default function PayoffTable() {
 
     if (legs.length === 0) return null;
 
-    // Generate a wider range for scrolling: min strike, max strike, ATM, and +/- 20% ranges
-    const strikes = legs.map(l => l.strike);
-    const minStrike = Math.min(...strikes, spotPrice * 0.8);
-    const maxStrike = Math.max(...strikes, spotPrice * 1.2);
-
-    // Create 20-30 meaningful rows
-    const range = maxStrike - minStrike;
-    const step = Math.max(1, Math.ceil(range / 20));
-
-    const displayMin = Math.floor(minStrike - range * 0.1);
-    const displayMax = Math.ceil(maxStrike + range * 0.1);
-    const data = generateChartData(legs, displayMin, displayMax, step);
+    const domain = calculateDisplayDomain(legs, spotPrice);
+    const data = generateChartData(legs, domain.minSpot, domain.maxSpot, domain.tableStep);
 
     return (
         <div className="mt-8">
@@ -54,23 +50,21 @@ export default function PayoffTable() {
                                 <td className="px-4 py-3 font-medium">${row.spotPrice.toFixed(2)}</td>
                                 {legs.map(leg => {
                                     const val = row[leg.id];
-
-                                    // Math breakdown
                                     const isCall = leg.type === 'Call';
+                                    const isStock = leg.type === 'Stock';
                                     const isLong = leg.position === 'Long';
-                                    const intrinsicValue = isCall ? Math.max(0, row.spotPrice - leg.strike) : Math.max(0, leg.strike - row.spotPrice);
-
-                                    // Recreating the text explanation to avoid modifying calculations.ts heavily
-                                    const payoff = intrinsicValue * leg.quantity;
-                                    const cost = leg.premium * leg.quantity;
+                                    const intrinsicValue = calculateOptionIntrinsicValue(row.spotPrice, leg);
+                                    const grossValue = calculateGrossLegValueAtExpiration(row.spotPrice, leg);
+                                    const cost = calculateEntryCost(leg);
                                     const mathText = isLong
-                                        ? `(${payoff.toFixed(0)} Payoff - ${cost.toFixed(0)} Cost)`
-                                        : `(${cost.toFixed(0)} Credit - ${payoff.toFixed(0)} Payoff)`;
+                                        ? `(${grossValue.toFixed(2)} Payoff - ${cost.toFixed(2)} Cost)`
+                                        : `(${cost.toFixed(2)} Credit - ${grossValue.toFixed(2)} Payoff)`;
 
-                                    // Moneyness
                                     let moneyness = 'ATM';
                                     let moneyColor = 'text-foreground/50 bg-white/5';
-                                    if (row.spotPrice === leg.strike) {
+                                    if (isStock) {
+                                        moneyness = 'N/A';
+                                    } else if (row.spotPrice === leg.strike) {
                                         moneyness = 'ATM';
                                         moneyColor = 'text-yellow-400/80 bg-yellow-400/10';
                                     } else if (isCall) {
@@ -81,14 +75,12 @@ export default function PayoffTable() {
                                             moneyness = 'OTM';
                                             moneyColor = 'text-red-400/80 bg-red-400/10';
                                         }
-                                    } else { // Put
-                                        if (row.spotPrice < leg.strike) {
-                                            moneyness = 'ITM';
-                                            moneyColor = 'text-green-400/80 bg-green-400/10';
-                                        } else {
-                                            moneyness = 'OTM';
-                                            moneyColor = 'text-red-400/80 bg-red-400/10';
-                                        }
+                                    } else if (row.spotPrice < leg.strike) {
+                                        moneyness = 'ITM';
+                                        moneyColor = 'text-green-400/80 bg-green-400/10';
+                                    } else {
+                                        moneyness = 'OTM';
+                                        moneyColor = 'text-red-400/80 bg-red-400/10';
                                     }
 
                                     const payoffFormulaStr = isCall
@@ -96,7 +88,7 @@ export default function PayoffTable() {
                                         : `max(0, ${leg.strike} - ${row.spotPrice.toFixed(0)})`;
 
                                     const payoffString = leg.quantity > 1
-                                        ? `${payoffFormulaStr} × ${leg.quantity}`
+                                        ? `${payoffFormulaStr} x ${leg.quantity}`
                                         : payoffFormulaStr;
 
                                     return (
@@ -106,16 +98,32 @@ export default function PayoffTable() {
                                             </div>
                                             {showMath && (
                                                 <div className="text-[10px] text-foreground/50 mt-1 whitespace-nowrap font-mono opacity-80 flex flex-col gap-1">
-                                                    <div className="flex items-center gap-1.5 bg-background/50 w-fit px-1.5 py-0.5 rounded border border-white/5">
-                                                        <span className={`px-1 rounded-[3px] font-bold ${moneyColor}`}>{moneyness}</span>
-                                                        <span>IV: ${intrinsicValue.toFixed(2)}</span>
-                                                    </div>
-                                                    <span className="opacity-70">
-                                                        Payoff: {payoffString} = {payoff.toFixed(0)}
-                                                    </span>
-                                                    <span className="opacity-70">
-                                                        PnL: {mathText}
-                                                    </span>
+                                                    {isStock ? (
+                                                        <>
+                                                            <div className="flex items-center gap-1.5 bg-background/50 w-fit px-1.5 py-0.5 rounded border border-white/5">
+                                                                <span className={`px-1 rounded-[3px] font-bold ${moneyColor}`}>{moneyness}</span>
+                                                                <span>Value: ${grossValue.toFixed(2)}</span>
+                                                            </div>
+                                                            <span className="opacity-70">
+                                                                PnL: {isLong
+                                                                    ? `(${row.spotPrice.toFixed(2)} Spot - ${leg.premium.toFixed(2)} Entry) x ${leg.quantity}`
+                                                                    : `(${leg.premium.toFixed(2)} Entry - ${row.spotPrice.toFixed(2)} Spot) x ${leg.quantity}`}
+                                                            </span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <div className="flex items-center gap-1.5 bg-background/50 w-fit px-1.5 py-0.5 rounded border border-white/5">
+                                                                <span className={`px-1 rounded-[3px] font-bold ${moneyColor}`}>{moneyness}</span>
+                                                                <span>IV: ${intrinsicValue.toFixed(2)}</span>
+                                                            </div>
+                                                            <span className="opacity-70">
+                                                                Payoff: {payoffString} = {grossValue.toFixed(2)}
+                                                            </span>
+                                                            <span className="opacity-70">
+                                                                PnL: {mathText}
+                                                            </span>
+                                                        </>
+                                                    )}
                                                 </div>
                                             )}
                                         </td>
